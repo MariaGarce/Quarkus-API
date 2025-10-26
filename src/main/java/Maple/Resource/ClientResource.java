@@ -1,10 +1,13 @@
-package Maple;
+package Maple.Resource;
 
-import jakarta.transaction.Transactional;
+import Maple.Entity.Client;
+import Maple.Service.ClientService;
+import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -13,29 +16,32 @@ import java.util.UUID;
 @Consumes(MediaType.APPLICATION_JSON)
 public class ClientResource {
 
+    @Inject
+    ClientService clientService;
+
     @POST
-    @Transactional
     public Response create(@Valid Client client) {
-        client.persist();
-        return Response.status(Response.Status.CREATED).entity(client).build();
+        Client created = clientService.create(client);
+        return Response.status(Response.Status.CREATED).entity(created).build();
     }
 
     @GET
-    @Path("/all")
     public Response listAll() {
-        return Response.ok(Client.listAll()).build();
+        List<Client> clients = clientService.findAll();
+        return Response.ok(clients).build();
     }
 
     @GET
     @Path("/country/{country}")
-    public List<Client> getByCountry(@PathParam("country") String country) {
-        return Client.list("country", country);
+    public Response getByCountry(@PathParam("country") String country) {
+        List<Client> clients = clientService.findByCountry(country);
+        return Response.ok(clients).build();
     }
 
     @GET
     @Path("/{id}")
     public Response getById(@PathParam("id") UUID id) {
-        Client client = Client.findById(id);
+        Client client = clientService.findById(id);
         if (client == null) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -44,30 +50,22 @@ public class ClientResource {
 
     @PUT
     @Path("/{id}")
-    @Transactional
     public Response update(@PathParam("id") UUID id, @Valid Client updated) {
-        Client client = Client.findById(id);
+        Client client = clientService.update(id, updated);
         if (client == null) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
-
-        client.email = updated.email;
-        client.address = updated.address;
-        client.phone = updated.phone;
-        client.country = updated.country;
-
-        client.persist();
         return Response.ok(client).build();
     }
 
     @DELETE
     @Path("/{id}")
-    @Transactional
     public Response delete(@PathParam("id") UUID id) {
-        boolean deleted = Client.deleteById(id);
+        boolean deleted = clientService.delete(id);
         if (!deleted) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
         return Response.noContent().build();
     }
 }
+

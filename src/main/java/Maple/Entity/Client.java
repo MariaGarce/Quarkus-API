@@ -1,4 +1,4 @@
-package Maple;
+package Maple.Entity;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;

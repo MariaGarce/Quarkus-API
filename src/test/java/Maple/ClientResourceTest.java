@@ -28,8 +28,7 @@ class ClientResourceTest {
                     "email": "john.doe@example.com",
                     "address": "123 Main St, New York, NY",
                     "phone": "+1234567890",
-                    "country": "US",
-                    "demonym": "American"
+                    "country": "US"
                 }
                 """;
 
@@ -42,6 +41,7 @@ class ClientResourceTest {
                 .body("firstName", is("John"))
                 .body("lastName", is("Doe"))
                 .body("email", is("john.doe@example.com"))
+                .body("country", is("US"))
                 .body("id", notNullValue())
                 .extract().path("id");
         
@@ -53,7 +53,6 @@ class ClientResourceTest {
     @Test
     @Order(2)
     void testCreateClientWithValidationError() {
-        // Missing required fields
         String invalidClientJson = """
                 {
                     "firstName": "",
@@ -74,7 +73,7 @@ class ClientResourceTest {
     @Order(3)
     void testGetAllClients() {
         given()
-                .when().get("/clients/all")
+                .when().get("/clients")
                 .then()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
@@ -100,7 +99,7 @@ class ClientResourceTest {
     @Order(5)
     void testGetClientByIdNotFound() {
         given()
-                .when().get("/clients/99999")
+                .when().get("/clients/" + UUID.randomUUID())
                 .then()
                 .statusCode(404);
     }
@@ -140,8 +139,7 @@ class ClientResourceTest {
                     "email": "john.updated@example.com",
                     "address": "456 Updated Ave, Los Angeles, CA",
                     "phone": "+0987654321",
-                    "country": "CA",
-                    "demonym": "Canadian"
+                    "country": "CA"
                 }
                 """;
 
@@ -155,7 +153,6 @@ class ClientResourceTest {
                 .body("address", is("456 Updated Ave, Los Angeles, CA"))
                 .body("phone", is("+0987654321"))
                 .body("country", is("CA"))
-                // Verify that firstName, lastName were NOT updated (only email, address, phone, country allowed)
                 .body("firstName", is("John"))
                 .body("lastName", is("Doe"));
     }
@@ -177,7 +174,7 @@ class ClientResourceTest {
         given()
                 .contentType(ContentType.JSON)
                 .body(updateJson)
-                .when().put("/clients/99999")
+                .when().put("/clients/" + UUID.randomUUID())
                 .then()
                 .statusCode(404);
     }
@@ -190,7 +187,6 @@ class ClientResourceTest {
                 .then()
                 .statusCode(204);
 
-        // Verify client is deleted
         given()
                 .when().get("/clients/" + createdClientId)
                 .then()
@@ -201,7 +197,7 @@ class ClientResourceTest {
     @Order(11)
     void testDeleteClientNotFound() {
         given()
-                .when().delete("/clients/99999")
+                .when().delete("/clients/" + UUID.randomUUID())
                 .then()
                 .statusCode(404);
     }
