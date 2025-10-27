@@ -43,6 +43,7 @@ class ClientResourceTest {
                 .body("email", is("john.doe@example.com"))
                 .body("country", is("US"))
                 .body("id", notNullValue())
+                .body("demonym", notNullValue()) // Should be auto-populated
                 .extract().path("id");
         
         createdClientId = UUID.fromString(idString);
@@ -92,7 +93,8 @@ class ClientResourceTest {
                 .body("firstName", is("John"))
                 .body("lastName", is("Doe"))
                 .body("email", is("john.doe@example.com"))
-                .body("country", is("US"));
+                .body("country", is("US"))
+                .body("demonym", notNullValue()); // Should have demonym
     }
 
     @Test
@@ -130,6 +132,8 @@ class ClientResourceTest {
     @Test
     @Order(8)
     void testUpdateClient() {
+        // Only email, address, phone, and country can be updated
+        // firstName and lastName should remain unchanged
         String updateJson = """
                 {
                     "firstName": "Jane",
@@ -153,8 +157,9 @@ class ClientResourceTest {
                 .body("address", is("456 Updated Ave, Los Angeles, CA"))
                 .body("phone", is("+0987654321"))
                 .body("country", is("CA"))
-                .body("firstName", is("John"))
-                .body("lastName", is("Doe"));
+                .body("firstName", is("John")) // Should NOT be updated
+                .body("lastName", is("Doe")) // Should NOT be updated
+                .body("demonym", notNullValue()); // Should be updated for CA
     }
 
     @Test

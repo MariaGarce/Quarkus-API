@@ -10,6 +10,10 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Business logic layer for Client operations
+ * Handles DTO-Entity conversion and external API integration
+ */
 @ApplicationScoped
 public class ClientService {
 
@@ -17,6 +21,9 @@ public class ClientService {
     @RestClient
     RestCountriesClient restCountriesClient;
 
+    /**
+     * Fetch demonym from RestCountries API
+     */
     private String fetchDemonym(String countryCode) {
         if (countryCode == null || countryCode.isEmpty()) {
             return null;
@@ -36,7 +43,10 @@ public class ClientService {
 
     @Transactional
     public Client create(Client client) {
-
+        Client.find("email", client.email).firstResultOptional().ifPresent(existing -> {
+            throw new IllegalArgumentException("Client with email " + client.email + " already exists.");
+        });
+  
         if (client.country != null) {
             String demonym = fetchDemonym(client.country);
             if (demonym != null) {
@@ -45,6 +55,7 @@ public class ClientService {
         }
         
         client.persist();
+        
         return client;
     }
 
@@ -61,16 +72,23 @@ public class ClientService {
     }
 
     @Transactional
-    public Client update(UUID id, Client updated) {
+    public Client update(UUID id, Client updatedClient) {
+        Client.find("email", updatedClient.email).firstResultOptional().ifPresent(existing -> {
+            Client existingClient = (Client) existing;
+            if(!existingClient.id.equals(id)) {
+                throw new IllegalArgumentException("Client with email " + updatedClient.email + " already exists.");
+            }
+        });
+
         Client client = Client.findById(id);
         if (client == null) {
             return null;
         }
 
-        client.email = updated.email;
-        client.address = updated.address;
-        client.phone = updated.phone;
-        client.country = updated.country;
+        client.email = updatedClient.email;
+        client.address = updatedClient.address;
+        client.phone = updatedClient.phone;
+        client.country = updatedClient.country;
 
         if (client.country != null) {
             String demonym = fetchDemonym(client.country);
@@ -80,6 +98,7 @@ public class ClientService {
         }
 
         client.persist();
+        
         return client;
     }
 
