@@ -8,15 +8,10 @@ import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * REST API endpoints for Client management
- * All endpoints include exception handling for robustness
- */
 @Path("/clients")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
@@ -29,7 +24,7 @@ public class ClientResource {
      * Create a new customer
      * Demonym is auto-populated from RestCountries API
      * 
-     * @param clientDto Client data (without ID and demonym)
+     * @param clientDto Client data 
      * @return 201 Created with the created client including ID and demonym
      */
     @POST

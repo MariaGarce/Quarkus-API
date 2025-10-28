@@ -22,7 +22,9 @@ public class ClientService {
     RestCountriesClient restCountriesClient;
 
     /**
-     * Fetch demonym from RestCountries API
+     * Fetches the demonym for a given country code from the RestCountries API
+     * @param countryCode ISO 3166-1 country code (e.g., "US", "ES")
+     * @return The English demonym (e.g., "American", "Spanish") or null if not found
      */
     private String fetchDemonym(String countryCode) {
         if (countryCode == null || countryCode.isEmpty()) {
@@ -41,6 +43,11 @@ public class ClientService {
         return null;
     }
 
+    /**
+     * Creates a new client with automatic demonym enrichment
+     * Validates email uniqueness (case-insensitive) and fetches the country's demonym
+     * @return The persisted client with auto-generated ID and demonym
+     */
     @Transactional
     public Client create(Client client) {
         Client.find("email", client.email).firstResultOptional().ifPresent(existing -> {
@@ -59,18 +66,35 @@ public class ClientService {
         return client;
     }
 
+    /**
+     * Retrieves all clients from the database
+     * @return List of all client entities
+     */
     public List<Client> findAll() {
         return Client.listAll();
     }
 
+    /**
+     * Retrieves all clients belonging to a specific country
+     * @return List of clients from the specified country
+     */
     public List<Client> findByCountry(String country) {
         return Client.list("country", country);
     }
 
+    /**
+     * Finds a client by their unique identifier
+     * @return The client entity or null if not found
+     */
     public Client findById(UUID id) {
         return Client.findById(id);
     }
 
+    /**
+     * Updates an existing client's modifiable fields (email, address, phone, country)
+     * Re-validates email uniqueness and refreshes demonym if country changes
+     * @return The updated client entity or null if not found
+     */
     @Transactional
     public Client update(UUID id, Client updatedClient) {
         Client.find("email", updatedClient.email).firstResultOptional().ifPresent(existing -> {
@@ -102,6 +126,10 @@ public class ClientService {
         return client;
     }
 
+    /**
+     * Deletes a client by their unique identifier
+     * @return true if the client was deleted, false if not found
+     */
     @Transactional
     public boolean delete(UUID id) {
         return Client.deleteById(id);

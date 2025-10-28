@@ -1,341 +1,250 @@
 # Clients API
 
-A RESTful API for managing customer/client data with automatic demonym enrichment, built with Quarkus and PostgreSQL.
+RESTful API for managing client data with automatic demonym enrichment from country codes.
+
+**Tech Stack:** Quarkus 3.28.5 | PostgreSQL | Panache ORM | RestCountries API | Swagger UI
 
 ## Table of Contents
-- [Overview](#overview)
+- [Quick Start](#quick-start)
 - [Features](#features)
-- [Architecture & Design Decisions](#architecture--design-decisions)
+- [Architecture](#architecture)
+- [How to Run](#how-to-run)
+- [Using Just (Task Runner)](#using-just-task-runner)
 - [API Endpoints](#api-endpoints)
 - [Data Model](#data-model)
-- [Setup & Configuration](#setup--configuration)
-- [Running the Application](#running-the-application)
+- [Configuration](#configuration)
 - [Testing](#testing)
 - [Project Structure](#project-structure)
+- [Key Design Decisions](#key-design-decisions)
+- [Dependencies](#dependencies)
 
-## Overview
+## Quick Start
 
-This API provides a complete CRUD (Create, Read, Update, Delete) system for managing client information. It automatically enriches client records with their country's demonym (e.g., "American" for US, "español" for ES) by integrating with the RestCountries API.
+```bash
+# Run in development mode (auto-starts PostgreSQL via Dev Services)
+./mvnw quarkus:dev
 
-**Tech Stack:**
-- **Framework:** Quarkus 3.28.5 (Supersonic Subatomic Java)
-- **Database:** PostgreSQL with Hibernate ORM Panache
-- **External API:** RestCountries API v3.1
-- **Testing:** JUnit 5, RestAssured, Testcontainers
-- **Validation:** Hibernate Validator (Jakarta Bean Validation)
+# Access Swagger UI
+open http://localhost:8080/q/swagger-ui
 
-**Tech Stack:**
-- **Framework:** Quarkus 3.28.5 (Supersonic Subatomic Java)
-- **Database:** PostgreSQL with Hibernate ORM Panache
-- **External API:** RestCountries API v3.1
-- **Testing:** JUnit 5, RestAssured, Testcontainers
-- **Validation:** Hibernate Validator (Jakarta Bean Validation)
+# Run tests
+./mvnw test
+```
 
 ## Features
 
-✅ **Complete CRUD Operations** - Create, Read, Update, and Delete clients  
-✅ **UUID-based Identifiers** - Globally unique, non-sequential IDs for security  
-✅ **Automatic Demonym Enrichment** - Fetches country demonyms from RestCountries API  
-✅ **Intelligent Fallback** - Uses English demonym when Spanish is unavailable  
-✅ **Country Filtering** - Query clients by country code  
-✅ **Bean Validation** - Automatic request validation with detailed error messages  
-✅ **Clean Architecture** - Separation of concerns (Resource → Service → Entity)  
-✅ **Comprehensive Testing** - 11 unit tests covering all endpoints and edge cases
+- ✅ Full CRUD operations (Create, Read, Update, Delete)
+- ✅ UUID-based identifiers for security
+- ✅ Auto-enrichment of country demonyms (Spanish → English fallback)
+- ✅ Country-based filtering
+- ✅ Case-insensitive email uniqueness
+- ✅ Comprehensive validation & error handling
+- ✅ Clean layered architecture with DTO pattern
+- ✅ 11 unit + integration tests
 
-## Architecture & Design Decisions
+## Architecture
 
-### 1. **Layered Architecture (Clean Code Principle)**
+**Layered Architecture:**
+- **Resource Layer** → HTTP/REST endpoints, validation (`ClientResource.java`)
+- **Service Layer** → Business logic, email uniqueness, demonym fetching (`ClientService.java`)
+- **Entity Layer** → Database mapping with Panache Active Record (`Client.java`)
+- **DTO Layer** → API contract, separates input/output from persistence (`ClientDto.java`)
 
-The application follows a **three-layer architecture** to maintain separation of concerns:
-
+**Request Flow:**
 ```
-┌─────────────────────────────────────┐
-│   Resource Layer (Controller)       │  ← HTTP handling, routing
-│   ClientResource.java                │
-└──────────────┬──────────────────────┘
-               │
-               ↓
-┌─────────────────────────────────────┐
-│   Service Layer (Business Logic)    │  ← Business rules, orchestration
-│   ClientService.java                 │
-└──────────────┬──────────────────────┘
-               │
-               ↓
-┌─────────────────────────────────────┐
-│   Entity Layer (Data Model)          │  ← Database mapping
-│   Client.java (Panache)              │
-└─────────────────────────────────────┘
+HTTP Request → ClientResource → ClientDto validation → ClientService
+    → Check duplicate email (Database)
+    → Fetch demonym (RestCountries API)
+    → Client.persist() (Database)
+    → Return ClientDto
 ```
 
-**Design Rationale:**
-- **Resource Layer** contains NO business logic - only HTTP concerns (status codes, response building)
-- **Service Layer** encapsulates all business rules, including demonym fetching and field update restrictions
-- **Entity Layer** uses Panache active record pattern for simplified database operations
-- This separation enables easier testing, maintenance, and future scalability
-
-
-## API Endpoints
-
-### Base URL: `http://localhost:8080`
-
-| Method | Endpoint | Description | Request Body | Response |
-|--------|----------|-------------|--------------|----------|
-| `POST` | `/clients` | Create a new client | Client JSON (without ID) | 201 Created + Client |
-| `GET` | `/clients` | Get all clients | - | 200 OK + Client[] |
-| `GET` | `/clients/country/{code}` | Get clients by country | - | 200 OK + Client[] |
-| `GET` | `/clients/{id}` | Get client by UUID | - | 200 OK + Client / 404 |
-| `PUT` | `/clients/{id}` | Update client (email/address/phone/country) | Client JSON | 200 OK + Client / 404 |
-| `DELETE` | `/clients/{id}` | Delete client | - | 204 No Content / 404 |
-
-### Example Requests
-
-#### Create Client
-```bash
-curl -X POST http://localhost:8080/clients \
-  -H "Content-Type: application/json" \
-  -d '{
-    "firstName": "John",
-    "middleName": "Robert",
-    "lastName": "Doe",
-    "secondLastName": "",
-    "email": "john.doe@example.com",
-    "address": "123 Main St, New York, NY",
-    "phone": "+1234567890",
-    "country": "US"
-  }'
-```
-
-**Response:**
-```json
-{
-  "id": "b47e3e02-43d0-47ab-9a34-5e1b39051846",
-  "firstName": "John",
-  "middleName": "Robert",
-  "lastName": "Doe",
-  "secondLastName": "",
-  "email": "john.doe@example.com",
-  "address": "123 Main St, New York, NY",
-  "phone": "+1234567890",
-  "country": "US",
-  "demonym": "American"
-}
-```
-
-#### Get All Clients
-```bash
-curl http://localhost:8080/clients
-```
-
-#### Get Clients by Country
-```bash
-curl http://localhost:8080/clients/country/US
-```
-
-#### Get Client by ID
-```bash
-curl http://localhost:8080/clients/b47e3e02-43d0-47ab-9a34-5e1b39051846
-```
-
-#### Update Client
-```bash
-curl -X PUT http://localhost:8080/clients/b47e3e02-43d0-47ab-9a34-5e1b39051846 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "new.email@example.com",
-    "address": "456 Oak Ave, Boston, MA",
-    "phone": "+1987654321",
-    "country": "US"
-  }'
-```
-
-#### Delete Client
-```bash
-curl -X DELETE http://localhost:8080/clients/b47e3e02-43d0-47ab-9a34-5e1b39051846
-```
-
-## Data Model
-
-### Client Entity
-
-| Field | Type | Required | Constraints | Description |
-|-------|------|----------|-------------|-------------|
-| `id` | UUID | Auto-generated | Primary Key | Unique identifier |
-| `firstName` | String | ✅ | Not blank | Client's first name |
-| `middleName` | String | ❌ | - | Client's middle name (optional) |
-| `lastName` | String | ✅ | Not blank | Client's last name |
-| `secondLastName` | String | ❌ | - | Client's second last name (optional) |
-| `email` | String | ✅ | Valid email, unique | Contact email address |
-| `address` | String | ✅ | Not blank | Physical address |
-| `phone` | String | ✅ | Not blank | Phone number |
-| `country` | String | ✅ | 2-3 chars (ISO code) | Country code (e.g., "US", "ES") |
-| `demonym` | String | Auto-populated | - | Country demonym (e.g., "American") |
-
-**Validation Rules:**
-- Email must be valid format and unique across all clients
-- Country code must be 2-3 characters (ISO 3166-1 alpha-2/alpha-3)
-- Demonym is automatically fetched and cannot be manually set
-
-## Setup & Configuration
+## How to Run
 
 ### Prerequisites
 - **Java:** JDK 21 or later
 - **Maven:** 3.9+ (or use included `./mvnw`)
-- **PostgreSQL:** 13+ (or use Quarkus Dev Services for auto-provisioning)
-- **Docker:** Required for Dev Services and Testcontainers
+- **Docker:** Required for Dev Services (auto-starts PostgreSQL)
 
-### Database Configuration
-
-**Option 1: Dev Services (Automatic - Recommended for Development)**
-
-No configuration needed! Quarkus automatically starts a PostgreSQL container:
-
-```properties
-# application.properties (minimal config)
-quarkus.datasource.db-kind=postgresql
-```
-
-**Option 2: Manual PostgreSQL Connection**
-
-```properties
-# application.properties
-quarkus.datasource.db-kind=postgresql
-quarkus.datasource.username=your_username
-quarkus.datasource.password=your_password
-quarkus.datasource.jdbc.url=jdbc:postgresql://localhost:5432/your_database
-
-# Disable Dev Services
-quarkus.devservices.enabled=false
-
-# Schema management (update schema automatically)
-quarkus.hibernate-orm.database.generation=update
-```
-
-### Environment Variables (Alternative)
+### Development Mode
 
 ```bash
-export QUARKUS_DATASOURCE_USERNAME=postgres
-export QUARKUS_DATASOURCE_PASSWORD=postgres
-export QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://localhost:5432/clientsdb
-```
+# Clone the repository
+git clone https://github.com/MariaGarce/Quarkus-API.git
+cd clientsapi
 
-## Running the Application
-
-### Development Mode (Live Reload)
-
-Run with automatic live coding (code changes reload instantly):
-
-```bash
+# Run in development mode (live reload enabled)
 ./mvnw quarkus:dev
 ```
 
-The application will start at: **http://localhost:8080**
+Quarkus will:
+- Automatically start a PostgreSQL container via Dev Services
+- Apply database schema migrations
+- Start the application on `http://localhost:8080`
+- Enable live coding (code changes reload instantly)
 
-**Dev UI:** Available at http://localhost:8080/q/dev/
+**Access Points:**
+- **API Base:** http://localhost:8080/clients
+- **Swagger UI:** http://localhost:8080/q/swagger-ui
+- **Dev UI:** http://localhost:8080/q/dev
+
+
+### Stop the Application
+
+- **Dev Mode:** Press `Ctrl+C` in terminal or type `q` and press Enter
+- **Production:** Press `Ctrl+C`
+
+## Using Just (Task Runner)
+
+This project includes a `justfile` for common tasks. [Install Just](https://github.com/casey/just#installation) to use these commands:
+
+```bash
+# Install just (macOS)
+brew install just
+
+# Show all available commands
+just
+
+# Common commands
+just dev              # Start development mode
+just test             # Run all tests
+just swagger          # Open Swagger UI in browser
+just create-client John john@example.com US  # Create a test client
+just get-clients      # List all clients (pretty printed)
+just kill-port        # Kill process on port 8080
+just clean            # Clean build artifacts
+just package          # Build production package
+```
+
+**Available Commands:**
+- **Development:** `dev`, `dev-ui`, `swagger`, `kill-port`
+- **Building:** `package`, `build-native`, `docker-build`
+- **Testing:** `test`, `test-coverage`
+- **API Testing:** `create-client`, `get-clients`, `get-clients-by-country`, `delete-client`
+- **Maintenance:** `clean`, `format`, `update-deps`, `logs`
+- **Git:** `commit "message"`
+
+See the full list with `just --list`
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/clients` | Create client (demonym auto-populated) |
+| `GET` | `/clients` | List all clients |
+| `GET` | `/clients/country/{code}` | Filter by country (e.g., "US", "ES") |
+| `GET` | `/clients/{id}` | Get client by UUID |
+| `PUT` | `/clients/{id}` | Update email/address/phone/country only |
+| `DELETE` | `/clients/{id}` | Delete client |
+
+**Example:**
+```bash
+# Create client
+curl -X POST http://localhost:8080/clients -H "Content-Type: application/json" -d '{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john@example.com",
+  "address": "123 Main St",
+  "phone": "+1234567890",
+  "country": "US"
+}'
+
+# Response
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john@example.com",
+  "address": "123 Main St",
+  "phone": "+1234567890",
+  "country": "US",
+  "demonym": "American"  # Auto-populated from RestCountries API
+}
+```
+
+## Data Model
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `id` | UUID | Auto | Primary key |
+| `firstName` | String | ✅ | - |
+| `middleName` | String | ❌ | Optional |
+| `lastName` | String | ✅ | - |
+| `secondLastName` | String | ❌ | Optional |
+| `email` | String | ✅ | Unique, case-insensitive |
+| `address` | String | ✅ | - |
+| `phone` | String | ✅ | - |
+| `country` | String | ✅ | ISO 3166-1 (2-3 chars) |
+| `demonym` | String | Auto | Fetched from RestCountries API |
+
+## Configuration
+
+**Minimal setup (Dev Services auto-starts PostgreSQL):**
+```properties
+# application.properties
+quarkus.datasource.db-kind=postgresql
+```
+
+**Manual PostgreSQL:**
+```properties
+quarkus.datasource.jdbc.url=jdbc:postgresql://localhost:5432/clientsdb
+quarkus.datasource.username=postgres
+quarkus.datasource.password=postgres
+quarkus.devservices.enabled=false
+```
 
 ## Testing
 
-### Run All Tests
-
 ```bash
-./mvnw test
+./mvnw test  # Runs 11 tests with Testcontainers
 ```
 
-### Test Coverage
-
-The project includes **11 comprehensive tests** in `ClientResourceTest.java`:
-
-- ✅ `testCreateClient()` - Create new client with demonym enrichment
-- ✅ `testListAllClients()` - Retrieve all clients
-- ✅ `testGetClientsByCountry()` - Filter clients by country code
-- ✅ `testGetClientById()` - Retrieve specific client by UUID
-- ✅ `testUpdateClient()` - Update allowed fields (email, address, phone, country)
-- ✅ `testDeleteClient()` - Delete client and verify removal
-- ✅ `testGetNonExistentClient()` - 404 for invalid UUID
-- ✅ `testUpdateNonExistentClient()` - 404 on update attempt
-- ✅ `testDeleteNonExistentClient()` - 404 on delete attempt
-- ✅ `testCreateClientWithInvalidEmail()` - Validation error handling
-- ✅ `testCreateClientWithMissingFields()` - Required field validation
-
-**Integration Tests:** `ClientResourceIT.java` extends unit tests with Testcontainers for full database integration.
-
-### Manual API Testing
-
-**Using HTTPie:**
-```bash
-# Create client
-http POST :8080/clients firstName="Jane" lastName="Smith" email="jane@example.com" address="789 Pine St" phone="+1122334455" country="ES"
-
-# Get all
-http :8080/clients
-
-# Get by country
-http :8080/clients/country/ES
-
-# Update
-http PUT :8080/clients/{uuid} email="updated@example.com"
-
-# Delete
-http DELETE :8080/clients/{uuid}
-```
+**Coverage:**
+- CRUD operations (create, read, update, delete)
+- Validation (invalid email, missing fields)
+- Error handling (404 Not Found, 409 Conflict)
+- Demonym enrichment verification
 
 ## Project Structure
 
 ```
-src/
-├── main/
-│   ├── java/Maple/
-│   │   ├── Dto/
-│   │   │   └── CountryDto.java              # DTO for RestCountries API response
-│   │   ├── Entity/
-│   │   │   └── Client.java                  # JPA entity with Panache
-│   │   ├── Resource/
-│   │   │   └── ClientResource.java          # REST endpoints (controller)
-│   │   └── Service/
-│   │       ├── ClientService.java           # Business logic layer
-│   │       └── RestCountriesClient.java     # MicroProfile REST client interface
-│   └── resources/
-│       ├── application.properties           # Quarkus configuration
-│       └── import.sql                       # Initial data (optional)
-└── test/
-    └── java/Maple/
-        ├── ClientResourceTest.java          # Unit tests
-        └── ClientResourceIT.java            # Integration tests
+src/main/java/Maple/
+├── Resource/
+│   ├── ClientResource.java      # REST endpoints
+│   └── RootResource.java         # Redirects / → /q/swagger-ui
+├── Service/
+│   ├── ClientService.java        # Business logic
+│   └── RestCountriesClient.java  # External API client
+├── Entity/
+│   └── Client.java               # JPA entity (Panache)
+└── Dto/
+    ├── ClientDto.java            # Request/response DTO
+    └── CountryDto.java           # External API response
 ```
 
-## RestCountries API Integration
+## Key Design Decisions
 
-**API Endpoint:** `https://restcountries.com/v3.1/alpha/{code}`
+1. **Manual Mapping** → `Client.toEntity(dto)` instead of MapStruct (simpler, no dependencies)
+2. **DTO Pattern** → Input DTOs exclude `id`/`demonym` (read-only fields in responses)
+3. **Panache Active Record** → `Client.listAll()`, `client.persist()` (less boilerplate)
+4. **Case-Insensitive Email** → Stored as lowercase for uniqueness checks
+5. **Update Restrictions** → Only email/address/phone/country can be modified
+6. **Error Handling** → Try-catch in all endpoints (409 Conflict, 404 Not Found, 500 Server Error)
 
-**Example Response:**
-```json
-[
-  {
-    "demonyms": {
-      "eng": { "f": "American", "m": "American" },
-      "fra": { "f": "Américaine", "m": "Américain" }
-    }
-  }
-]
-```
+## Dependencies
 
-**Fallback Strategy:**
-1. Try Spanish (`spa`) demonym → Male preferred, Female if male unavailable
-2. If no Spanish, try English (`eng`) → Male preferred, Female fallback
-3. If neither available, return `null` (graceful degradation)
+- `quarkus-rest` - JAX-RS REST endpoints
+- `quarkus-hibernate-orm-panache` - Simplified ORM
+- `quarkus-jdbc-postgresql` - PostgreSQL driver
+- `quarkus-rest-client-jackson` - MicroProfile REST Client
+- `quarkus-smallrye-openapi` - Swagger/OpenAPI docs
+- `quarkus-hibernate-validator` - Bean validation
+- `rest-assured` + `testcontainers` - Testing
 
-**Why This Approach?**
-- Not all countries have Spanish translations in the API
-- English is universally available as fallback
-- Application remains functional even if demonym unavailable
+---
 
+**Swagger UI:** http://localhost:8080/q/swagger-ui  
+**Dev UI:** http://localhost:8080/q/dev
 
-## Related Quarkus Guides
-
-- [Hibernate ORM with Panache](https://quarkus.io/guides/hibernate-orm-panache) - Simplified persistence
-- [Hibernate Validator](https://quarkus.io/guides/validation) - Bean validation
-- [REST Jackson](https://quarkus.io/guides/rest#json-serialisation) - JSON serialization
-- [JDBC Driver - PostgreSQL](https://quarkus.io/guides/datasource) - Database connectivity
-- [MicroProfile REST Client](https://quarkus.io/guides/rest-client) - External API integration
-- [Quarkus Dev Services](https://quarkus.io/guides/dev-services) - Auto-provisioning databases
 
 
