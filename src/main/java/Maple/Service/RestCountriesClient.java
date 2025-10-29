@@ -9,7 +9,7 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 import java.util.List;
 
 /**
- * MicroProfile REST Client for the RestCountries API
+ * REST Client for the RestCountries API
  * Provides access to country information including demonyms
  * 
  * Base URL: https://restcountries.com/v3.1
