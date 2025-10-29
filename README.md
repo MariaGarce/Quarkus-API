@@ -71,7 +71,7 @@ HTTP Request → ClientResource → ClientDto validation → ClientService
 ```bash
 # Clone the repository
 git clone https://github.com/MariaGarce/Quarkus-API.git
-cd clientsapi
+cd Quarkus-API
 
 # Run in development mode (live reload enabled)
 ./mvnw quarkus:dev
