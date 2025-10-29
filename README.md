@@ -120,9 +120,7 @@ just package          # Build production package
 - **Development:** `dev`, `dev-ui`, `swagger`, `kill-port`
 - **Building:** `package`, `build-native`, `docker-build`
 - **Testing:** `test`, `test-coverage`
-- **API Testing:** `create-client`, `get-clients`, `get-clients-by-country`, `delete-client`
-- **Maintenance:** `clean`, `format`, `update-deps`, `logs`
-- **Git:** `commit "message"`
+- **Maintenance:** `clean`, `update-deps`
 
 See the full list with `just --list`
 
